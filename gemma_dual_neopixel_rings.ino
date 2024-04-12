@@ -10,10 +10,9 @@ Project Pendant for Eva
 |   |      \  `-'    /|  (_,_)\  ||  (_.\.' / |  _( )_  ||  (_,_)\  |   (_(=)_)   
 /   )       \       / |  |    |  ||       .'  \ (_ o _) /|  |    |  |    (_I_)    
 `---'        `'-..-'  '--'    '--''-----'`     '.(_,_).' '--'    '--'    '---'    
-                                                                                  
+                                         bling-bling voor m'n guppie                               
 
-
-hardware platform  : Gemma M0
+hardware platform  : Gemma M0 (ATSAMD21x18)
                    : 12-led NeoPixel RGBW ring - WS2812B LED's (ring 2)
                    : 16-led NeoPixel RGBW ring - WS2812B LED's (ring 1)
 
@@ -21,32 +20,37 @@ Power              : 3.7v 150mAh LiPo
 codebase           : C
 
 (2024) JinjiroSan
-gemma_dual_neopixel_rings.ino : v1.2 - refactor c0.0.0
+gemma_dual_neopixel_rings.ino : v1.3 - refactor c0.0.1
 
 */
 
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_FreeTouch.h>
 
-#define NEOPIXEL_PIN 1
-#define NUM_LEDS 28
-#define CAPTOUCH_PIN 0
+#define NEOPIXEL_PIN 1 // Neopixel data connection on Gemma
+#define NUM_LEDS 28 // total number of LEDs
+#define CAPTOUCH_PIN 0 // Capacitive wire connection on Gemma
+#define START_LED_RING1 0 // first LED the total ring strip
+#define END_LED_RING1 15 // final LED on 16-led ring
+#define START_LED_RING2 16 // first LED on 12-led ring
+#define END_LED_RING2 27 // final LED on 12-led ring and led strip
+#define NUM_LEDS_RING1 16  // Total LEDs in the first ring
+#define NUM_LEDS_RING2 12  // Total LEDs in the second ring
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_FreeTouch qt_1 = Adafruit_FreeTouch(CAPTOUCH_PIN, OVERSAMPLE_4, RESISTOR_50K, FREQ_MODE_NONE);
 
-int brightness = 12; // Brightness of the LEDs (0-255)
+// Control settings
+int brightness = 12; // Brightness global upper limit of all LEDs (0-255)
 int touchThreshold = 400; // Threshold for touch sensitivity
 unsigned long blinkInterval = 500; // Interval for blinking effect only (in milliseconds)
-unsigned long rotationInterval = 300; // Speed of normal color rotation for smoother effect. Higher for slower
-unsigned long rainbowUpdateInterval = 5; // Interval for rainbow rotation updates, adjust for smoother effect (lower = smoother)
-//unsigned long rainbowRotationSpeed = 500; // Speed of rainbow rotation when touched (may be repurposed or adjusted as needed)
-uint32_t warmWhiteIntensity = 100; // Set this to the desired brightness for the warm white
-int brightness12LED = 200; // Brightness for the 12-LED ring's spinning trail (0-255)
-int brightness16LED = 100; // Brightness for the 16-LED ring's spinning trail (0-255)
+unsigned long rotationInterval = 300; // Speed of normal color rotation for colorwheelrotation animation 1 (lower is faster)
+unsigned long rainbowUpdateInterval = 5; // Interval for rainbow rotation updates
+uint32_t warmWhiteIntensity = 100; // Separate brightness for warm white blinking animation
+int brightness12LED = 200; // Separate brightness for the 12-LED ring's spinning trail animation
+int brightness16LED = 100; // Separate brightness for the 16-LED ring's spinning trail animation
 
-
-// Color variables for each ring so we can set them separately
+// Color variables for each ring
 uint32_t ring1Colors[3]; // 16-led
 uint32_t ring2Colors[3]; // 12-led
 
@@ -63,13 +67,13 @@ void setup() {
     Serial.println("Failed to begin touch on pin D0");
 
   // Initialize color variables for both rings using RGB values
-  ring1Colors[0] = strip.Color(255, 0, 0); // 16-led : Red
-  ring1Colors[1] = strip.Color(0, 255, 0); // 16-led : Green
-  ring1Colors[2] = strip.Color(0, 0, 255); // 16-led : Blue
+  ring1Colors[0] = strip.Color(255, 0, 0); // Red
+  ring1Colors[1] = strip.Color(0, 255, 0); // Green
+  ring1Colors[2] = strip.Color(0, 0, 255); // Blue
   
-  ring2Colors[0] = strip.Color(255, 255, 0); // 12-led : Yellow
-  ring2Colors[1] = strip.Color(0, 255, 255); // 12-led : Cyan
-  ring2Colors[2] = strip.Color(255, 0, 255); // 12-led : Magenta
+  ring2Colors[0] = strip.Color(255, 255, 0); // Yellow
+  ring2Colors[1] = strip.Color(0, 255, 255); // Cyan
+  ring2Colors[2] = strip.Color(255, 0, 255); // Magenta
 }
 
 void loop() {
@@ -105,24 +109,20 @@ void colorWheelRotation(unsigned long currentMillis) {
         static int colorIndex1 = 0; // Index for ring 1 color rotation
         static int colorIndex2 = 0; // Index for ring 2 color rotation
 
-        // Update colors for the first ring (0-15, 16 LEDs)
-        for (int i = 0; i < 16; i++) {
-            int colorChoice = (i + colorIndex1) % 3; // Cycle through 0, 1, 2
+        for (int i = START_LED_RING1; i <= END_LED_RING1; i++) {
+            int colorChoice = (i - START_LED_RING1 + colorIndex1) % 3;
             strip.setPixelColor(i, ring1Colors[colorChoice]);
         }
 
-        // Update colors for the second ring (16-27, 12 LEDs)
-        for (int i = 16; i < NUM_LEDS; i++) {
-            int colorChoice = (i + colorIndex2) % 3; // Cycle through 0, 1, 2
+        for (int i = START_LED_RING2; i <= END_LED_RING2; i++) {
+            int colorChoice = (i - START_LED_RING2 + colorIndex2) % 3;
             strip.setPixelColor(i, ring2Colors[colorChoice]);
         }
 
-        // Increment color indexes for the next iteration
         colorIndex1 = (colorIndex1 + 1) % 3;
         colorIndex2 = (colorIndex2 + 1) % 3;
     }
 }
-
 
 void rainbowWheel(unsigned long currentMillis) {
     static unsigned long lastUpdate = 0;
@@ -130,19 +130,11 @@ void rainbowWheel(unsigned long currentMillis) {
 
     if (currentMillis - lastUpdate > rainbowUpdateInterval) {
         lastUpdate = currentMillis;
-
-        // Incrementally shift the starting hue for the strip to create the rotation effect
-        // Increasing this value will slow down the speed of the rotation
         int speedFactor = 1; 
         hueShift += speedFactor;
 
-        int totalHueSpread = 256; // Represents the total range of hues
-        int hueIncrement = totalHueSpread / strip.numPixels(); // Distribute the hues evenly across the strip
-
         for(int i = 0; i < strip.numPixels(); i++) {
-            // Calculate the hue for each LED, ensuring a smooth transition across the strip
-            // The modulo operation ensures that the hue value wraps correctly
-            int hue = (hueShift + i * hueIncrement) % totalHueSpread;
+            int hue = (hueShift + i * (256 / strip.numPixels())) % 256;
             strip.setPixelColor(i, Wheel(hue));
         }
     }
@@ -152,104 +144,80 @@ void blinkWhiteRing(unsigned long currentMillis) {
     static bool isBlinkOn = false;
     static unsigned long lastBlinkTime = 0;
     if (currentMillis - lastBlinkTime > blinkInterval) {
-        isBlinkOn = !isBlinkOn; // Toggle the color state
+        isBlinkOn = !isBlinkOn;
         lastBlinkTime = currentMillis;
     }
 
-    for(int i = 16; i < NUM_LEDS; i++) { // Apply warm white color to the next 12 LEDs (12-pixel ring)
-        // Here we make sure to only use the warm white part of the RGBW LED
+    for(int i = START_LED_RING2; i <= END_LED_RING2; i++) {
         strip.setPixelColor(i, isBlinkOn ? strip.Color(0, 0, 0, warmWhiteIntensity) : strip.Color(0, 0, 0, 0));
     }
-    // Note: strip.show() is called in the loop() function to apply the updates
 }
 
 void spinningTrailAnimation(unsigned long currentMillis) {
     static unsigned long lastUpdate = 0;
-    static int leadLED = 27;
+    static int leadLED = END_LED_RING2;
 
-    unsigned long spinInterval = 100;
-
-    if (currentMillis - lastUpdate > spinInterval) {
+    if (currentMillis - lastUpdate > 100) {
         lastUpdate = currentMillis;
 
-        for (int i = 16; i < NUM_LEDS; i++) {
+        for (int i = START_LED_RING2; i <= END_LED_RING2; i++) {
             strip.setPixelColor(i, strip.Color(0, 0, 0, 0));
         }
 
         strip.setPixelColor(leadLED, strip.Color(0, 0, 0, brightness12LED));
 
         for (int trail = 1; trail <= 4; trail++) {
-            int trailLED = leadLED + trail;
-            if (trailLED >= NUM_LEDS) trailLED -= 12;
+            int trailLED = leadLED - trail;
+            if (trailLED < START_LED_RING2) trailLED += NUM_LEDS_RING2;
             int brightness = max(brightness12LED - (trail * (brightness12LED / 5)), 0);
             strip.setPixelColor(trailLED, strip.Color(0, 0, 0, brightness));
         }
 
-        leadLED -= 1;
-        if (leadLED < 16) leadLED = 27;
+        leadLED--;
+        if (leadLED < START_LED_RING2) leadLED = END_LED_RING2;
     }
 }
 
-
-
 void spinningTrailAnimation16LED(unsigned long currentMillis) {
     static unsigned long lastUpdate = 0;
-    static int leadLED = 0;
+    static int leadLED = START_LED_RING1; // Start from the beginning of the 16-LED segment for clockwise motion
 
-    unsigned long spinInterval = 100;
+    unsigned long spinInterval = 100; // Adjust as needed for desired spin speed
 
     if (currentMillis - lastUpdate > spinInterval) {
         lastUpdate = currentMillis;
 
-        for (int i = 0; i < 16; i++) {
-            strip.setPixelColor(i, strip.Color(0, 0, 0, 0));
+        // Clear the 16-LED ring part of the strip to reset the trail
+        for (int i = START_LED_RING1; i <= END_LED_RING1; i++) {
+            strip.setPixelColor(i, strip.Color(0, 0, 0, 0)); // Turn off LEDs
         }
 
-        strip.setPixelColor(leadLED, strip.Color(0, 0, 0, brightness16LED));
+        // Set the leading white LED
+        strip.setPixelColor(leadLED, strip.Color(0, 0, 0, brightness16LED)); // Full brightness for the leader
 
+        // Create the trailing LEDs with decaying brightness
         for (int trail = 1; trail <= 4; trail++) {
             int trailLED = leadLED - trail;
-            if (trailLED < 0) trailLED += 16;
+            if (trailLED < START_LED_RING1) trailLED += NUM_LEDS_RING1; // Wrap around the start of the ring if necessary
             int brightness = max(brightness16LED - (trail * (brightness16LED / 5)), 0);
             strip.setPixelColor(trailLED, strip.Color(0, 0, 0, brightness));
         }
 
-        leadLED = (leadLED - 1 + 16) % 16;
+        // Move to the next LED for the next update, wrapping around the ring
+        leadLED = (leadLED - 1 + NUM_LEDS_RING1) % NUM_LEDS_RING1;
+        if (leadLED < START_LED_RING1) leadLED = END_LED_RING1; // Ensure the leader stays within the 16-pixel ring
     }
-}
-
-
-
-
-void specialAnimation(unsigned long currentMillis) {
-  static unsigned long lastUpdate = 0;
-  if (currentMillis - lastUpdate > 100) { // Adjust as necessary for your animation speed
-    lastUpdate = currentMillis;
-    static bool growing = true;
-    static int brightnessLevel = 0;
-    uint32_t color = strip.Color(brightnessLevel, brightnessLevel, brightnessLevel, 0); // Pulsing white (RGB)
-    if (growing) {
-      brightnessLevel += 5;
-      if (brightnessLevel >= 255) growing = false;
-    } else {
-      brightnessLevel -= 5;
-      if (brightnessLevel <= 0) growing = true;
-    }
-    for (int i = 0; i < strip.numPixels(); i++) {
-      strip.setPixelColor(i, color);
-    }
-  }
 }
 
 uint32_t Wheel(byte WheelPos) {
-  WheelPos = 255 - WheelPos;
-  if(WheelPos < 85) {
-    return strip.Color(255 - WheelPos * 3, WheelPos * 3, 0);
-  } else if (WheelPos < 170) {
-    WheelPos -= 85;
-    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-  } else {
-    WheelPos -= 170;
-    return strip.Color(WheelPos * 3, 0, 255 - WheelPos * 3);
-  }
+    WheelPos = 255 - WheelPos;
+    if(WheelPos < 85) {
+        return strip.Color(255 - WheelPos * 3, WheelPos * 3, 0);
+    } else if (WheelPos < 170) {
+        WheelPos -= 85;
+        return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+    } else {
+        WheelPos -= 170;
+        return strip.Color(WheelPos * 3, 0, 255 - WheelPos * 3);
+    }
 }
